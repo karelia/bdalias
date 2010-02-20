@@ -36,6 +36,9 @@
 
 - (NSString *)fullPath;
 - (NSString *)fullPathRelativeToPath:(NSString *)relPath;
+- (NSString *)fullPathRelativeToPath:(NSString *)relPath mountVolumes:(BOOL)mountVolumes;
+- (NSString *)lastKnownPath;
+
 
 + (BDAlias *)aliasWithAliasHandle:(AliasHandle)alias;
 + (BDAlias *)aliasWithData:(NSData *)data;

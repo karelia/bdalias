@@ -10,9 +10,12 @@
 
 #import "BDAlias.h"
 
+#ifndef NSMakeCollectable
+#define NSMakeCollectable(x) (id)(x)
+#endif
 
 static Handle DataToHandle(CFDataRef inData);
-static CFDataRef HandleToData(Handle inHandle);
+static CFDataRef CopyHandleToData(Handle inHandle);
 
 static OSStatus PathToFSRef(CFStringRef inPath, FSRef *outRef);
 static CFStringRef FSRefToPathCopy(const FSRef *inRef);
@@ -34,7 +37,7 @@ static Handle DataToHandle(CFDataRef inData)
     return handle;
 }
 
-static CFDataRef HandleToData(Handle inHandle)
+static CFDataRef CopyHandleToData(Handle inHandle)
 {
     CFDataRef	data = NULL;
     CFIndex	len;
@@ -107,10 +110,13 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
 {
     id ret = [super init];
     
-    if (ret != nil) {
-        _alias = alias;
+    if (ret == nil) {
+		[self release];
+		return nil;
     }
-    
+	
+	_alias = alias;
+
     return ret;
 }
 
@@ -133,6 +139,7 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
     
     if (anErr != noErr) {
         if (outError) *outError = [NSError errorWithDomain:NSOSStatusErrorDomain code:anErr userInfo:nil];
+		[self release];
         return nil;
     }
     
@@ -148,12 +155,14 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
                         &ref);
     
     if (anErr != noErr) {
+		[self release];
         return nil;
     }
     
     anErr = PathToFSRef((CFStringRef) relPath, &relRef);
     
     if (anErr != noErr) {
+		[self release];
         return nil;
     }
     
@@ -184,6 +193,7 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
     
     if (anErr != noErr) {
         if (outError) *outError = [NSError errorWithDomain:NSOSStatusErrorDomain code:anErr userInfo:nil];
+		[self release];
         return nil;
     }
     
@@ -226,10 +236,10 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
 
 - (NSData *)aliasData
 {
-    NSData *result;
-    
-    result = (NSData *)HandleToData((Handle) _alias);
-    
+	NSData *result;
+
+	result = NSMakeCollectable(CopyHandleToData((Handle) _alias));
+
     return [result autorelease];
 }
 
@@ -245,6 +255,11 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
 
 - (NSString *)fullPathRelativeToPath:(NSString *)relPath
 {
+	return [self fullPathRelativeToPath:relPath mountVolumes:YES];
+}
+
+- (NSString *)fullPathRelativeToPath:(NSString *)relPath mountVolumes:(BOOL)mountVolumes;
+{
     OSStatus	anErr = noErr;
     FSRef	relPathRef;
     FSRef	tempRef;
@@ -252,27 +267,39 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
     Boolean	wasChanged;
     
     if (_alias != NULL) {
-        if (relPath != nil) {
+        unsigned long mountFlags = 0;
+		if (!mountVolumes) mountFlags = kResolveAliasFileNoUI;
+		
+		if (relPath != nil) {
             anErr = PathToFSRef((CFStringRef)relPath, &relPathRef);
             
             if (anErr != noErr) {
                 return NULL;
             }
             
-            anErr = FSResolveAlias(&relPathRef, _alias, &tempRef, &wasChanged);
+            anErr = FSResolveAliasWithMountFlags(&relPathRef, _alias, &tempRef, &wasChanged, mountFlags);
         } else {
-            anErr = FSResolveAlias(NULL, _alias, &tempRef, &wasChanged);
+            anErr = FSResolveAliasWithMountFlags(NULL, _alias, &tempRef, &wasChanged, mountFlags);
         }
         
         if (anErr != noErr) {
             return NULL;
         }
         
-        result = (NSString *)FSRefToPathCopy(&tempRef);
+        result = NSMakeCollectable(FSRefToPathCopy(&tempRef));
     }
-    
-    return [result autorelease];
+
+	return [result autorelease];
 }
+
+- (NSString *)lastKnownPath;
+{
+	CFStringRef outPath = NULL;
+	(void) FSCopyAliasInfo(_alias, NULL, NULL, &outPath, NULL, NULL);
+	NSString *result = NSMakeCollectable(outPath);
+	return [result autorelease];
+}
+
 
 + (BDAlias *)aliasWithAliasHandle:(AliasHandle)alias
 {
