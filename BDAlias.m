@@ -135,7 +135,14 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
     OSStatus	anErr = noErr;
     FSRef		ref;
     
-    anErr = PathToFSRef((CFStringRef) fullPath, &ref);
+	if (fullPath)
+	{
+		anErr = PathToFSRef((CFStringRef) fullPath, &ref);
+	}
+	else
+	{
+		anErr = fnfErr;	// give it a file not found error; better than crashing!
+	}
     
     if (anErr != noErr) {
         if (outError) *outError = [NSError errorWithDomain:NSOSStatusErrorDomain code:anErr userInfo:nil];
