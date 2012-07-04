@@ -352,7 +352,7 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
     return ([path1 isEqualTo:path2] == YES);
 }
 
-- (unsigned) hash
+- (NSUInteger) hash
 {
     return [[self fullPath] hash];
 }
