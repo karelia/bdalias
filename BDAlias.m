@@ -108,16 +108,11 @@ static CFStringRef FSRefToPathCopy(const FSRef *inRef)
 
 - (id)initWithAliasHandle:(AliasHandle)alias
 {
-    id ret = [super init];
-    
-    if (ret == nil) {
-		[self release];
-		return nil;
+    if (self = [super init])
+    {
+        _alias = alias;
     }
-	
-	_alias = alias;
-
-    return ret;
+    return self;
 }
 
 - (id)initWithData:(NSData *)data
